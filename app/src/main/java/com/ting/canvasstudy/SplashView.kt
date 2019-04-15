@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
+import android.view.animation.LinearInterpolator
 
 class SplashView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -35,13 +36,13 @@ class SplashView @JvmOverloads constructor(
     private val mRotateRadius = 90f
 
     //当前大圆的旋转角度
-    private val mCurrentRotateAngle = 0f
+    private var mCurrentRotateAngle = 0f
     //当前大圆的半径
     private val mCurrentRotateRadius = mRotateRadius
     //扩散圆的半径
     private val mCurrentHoleRadius = 0f
     //表示旋转动画的时长
-    private val mRotateDuration = 1200
+    private val mRotateDuration = 1200L
 
     private var mState: SplashState? = null
 
@@ -78,6 +79,23 @@ class SplashView @JvmOverloads constructor(
 
     //1.旋转
     inner class RotateState : SplashState() {
+        init {
+            //旋转一周
+            mValueAnimator = ValueAnimator.ofFloat(0f,(Math.PI*2).toFloat())
+            //播放两遍
+            mValueAnimator.repeatCount = 2
+            //播放时长
+            mValueAnimator.duration = mRotateDuration
+            //线性插值器
+            mValueAnimator.interpolator = LinearInterpolator()
+            //更新监听
+            mValueAnimator.addUpdateListener {
+                mCurrentRotateAngle = it.animatedValue as Float
+                invalidate()
+            }
+            mValueAnimator.start()
+            //运行
+        }
         override fun drawState(canvas: Canvas) {
             //绘制背景
             drawBackground(canvas)
@@ -91,7 +109,7 @@ class SplashView @JvmOverloads constructor(
         for (color in mCircleColors.withIndex()) {
             //x = centerX+cos(a)*r
             //y = centerY+cos(a)*r
-            val angle = rotateAngle * color.index
+            val angle = rotateAngle * color.index+mCurrentRotateAngle
             val cx = mCenterX + Math.cos(angle) * mRotateRadius
             val cy = mCenterY + Math.sin(angle) * mRotateRadius
             mPaint.color = color.value
