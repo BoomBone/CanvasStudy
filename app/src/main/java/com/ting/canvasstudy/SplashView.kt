@@ -43,7 +43,7 @@ class SplashView @JvmOverloads constructor(
     //当前大圆的半径
     private var mCurrentRotateRadius = mRotateRadius
     //扩散圆的半径
-    private val mCurrentHoleRadius = 0f
+    private var mCurrentHoleRadius = 0f
     //表示旋转动画的时长
     private val mRotateDuration = 1200L
 
@@ -129,7 +129,15 @@ class SplashView @JvmOverloads constructor(
     }
 
     fun drawBackground(canvas: Canvas) {
-        canvas.drawColor(mBackgroundColor)
+        if (mCurrentHoleRadius > 0) {
+            //控制空心圆
+            val strokeWidth = mDistance - mCurrentHoleRadius
+            val radius = strokeWidth / 2 + mCurrentHoleRadius
+            mHolePaint.strokeWidth = strokeWidth
+            canvas.drawCircle(mCenterX, mCenterY, radius, mHolePaint)
+        } else {
+            canvas.drawColor(mBackgroundColor)
+        }
     }
 
     //2.扩散聚合
@@ -145,6 +153,12 @@ class SplashView @JvmOverloads constructor(
                 mCurrentRotateRadius = it.animatedValue as Float
                 invalidate()
             }
+            mValueAnimator.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    super.onAnimationEnd(animation)
+                    mState = ExpandState()
+                }
+            })
             //运行
             mValueAnimator.reverse()
         }
@@ -155,5 +169,32 @@ class SplashView @JvmOverloads constructor(
         }
 
     }
+
     //3.水波纹
+    inner class ExpandState : SplashState() {
+        init {
+            mValueAnimator = ValueAnimator.ofFloat(mCircleRadius, mDistance)
+            //播放时长
+            mValueAnimator.duration = mRotateDuration
+            //插值器
+            mValueAnimator.interpolator = LinearInterpolator()
+            //更新监听
+            mValueAnimator.addUpdateListener {
+                mCurrentHoleRadius = it.animatedValue as Float
+                invalidate()
+            }
+            mValueAnimator.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    super.onAnimationEnd(animation)
+                }
+            })
+            //运行
+            mValueAnimator.start()
+        }
+
+        override fun drawState(canvas: Canvas) {
+            drawBackground(canvas)
+        }
+
+    }
 }
