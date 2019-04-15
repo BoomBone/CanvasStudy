@@ -1,5 +1,7 @@
 package com.ting.canvasstudy
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -8,6 +10,7 @@ import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 
 class SplashView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -38,7 +41,7 @@ class SplashView @JvmOverloads constructor(
     //当前大圆的旋转角度
     private var mCurrentRotateAngle = 0f
     //当前大圆的半径
-    private val mCurrentRotateRadius = mRotateRadius
+    private var mCurrentRotateRadius = mRotateRadius
     //扩散圆的半径
     private val mCurrentHoleRadius = 0f
     //表示旋转动画的时长
@@ -67,7 +70,7 @@ class SplashView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (mState==null){
+        if (mState == null) {
             mState = RotateState()
         }
         mState?.drawState(canvas)
@@ -81,7 +84,7 @@ class SplashView @JvmOverloads constructor(
     inner class RotateState : SplashState() {
         init {
             //旋转一周
-            mValueAnimator = ValueAnimator.ofFloat(0f,(Math.PI*2).toFloat())
+            mValueAnimator = ValueAnimator.ofFloat(0f, (Math.PI * 2).toFloat())
             //播放两遍
             mValueAnimator.repeatCount = 2
             //播放时长
@@ -93,9 +96,16 @@ class SplashView @JvmOverloads constructor(
                 mCurrentRotateAngle = it.animatedValue as Float
                 invalidate()
             }
-            mValueAnimator.start()
+            mValueAnimator.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    super.onAnimationEnd(animation)
+                    mState = MerginState()
+                }
+            })
             //运行
+            mValueAnimator.start()
         }
+
         override fun drawState(canvas: Canvas) {
             //绘制背景
             drawBackground(canvas)
@@ -109,9 +119,9 @@ class SplashView @JvmOverloads constructor(
         for (color in mCircleColors.withIndex()) {
             //x = centerX+cos(a)*r
             //y = centerY+cos(a)*r
-            val angle = rotateAngle * color.index+mCurrentRotateAngle
-            val cx = mCenterX + Math.cos(angle) * mRotateRadius
-            val cy = mCenterY + Math.sin(angle) * mRotateRadius
+            val angle = rotateAngle * color.index + mCurrentRotateAngle
+            val cx = mCenterX + Math.cos(angle) * mCurrentRotateRadius
+            val cy = mCenterY + Math.sin(angle) * mCurrentRotateRadius
             mPaint.color = color.value
             canvas.drawCircle(cx.toFloat(), cy.toFloat(), mCircleRadius, mPaint)
         }
@@ -121,6 +131,29 @@ class SplashView @JvmOverloads constructor(
     fun drawBackground(canvas: Canvas) {
         canvas.drawColor(mBackgroundColor)
     }
+
     //2.扩散聚合
+    inner class MerginState : SplashState() {
+        init {
+            mValueAnimator = ValueAnimator.ofFloat(mCircleRadius, mRotateRadius)
+            //播放时长
+            mValueAnimator.duration = mRotateDuration
+            //插值器
+            mValueAnimator.interpolator = OvershootInterpolator(10f)
+            //更新监听
+            mValueAnimator.addUpdateListener {
+                mCurrentRotateRadius = it.animatedValue as Float
+                invalidate()
+            }
+            //运行
+            mValueAnimator.reverse()
+        }
+
+        override fun drawState(canvas: Canvas) {
+            drawBackground(canvas)
+            drawCircles(canvas)
+        }
+
+    }
     //3.水波纹
 }
